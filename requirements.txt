@@ -1,7 +1,8 @@
 fastapi
-python-dotenv
-asyncpg
+uvicorn
+python-multipart
+pydantic
 passlib
 python-jose
-pydantic
-passlib[bcrypt]
+asyncpg
+python-dotenv
