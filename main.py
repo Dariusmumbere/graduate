@@ -252,6 +252,23 @@ async def read_graduates(
     query += " ORDER BY created_at DESC"
     return await db.fetch(query, *params)
 
+@app.post("/auth/login", response_model=Token)
+async def login_for_access_token(
+    db=Depends(get_db),
+    form_data: OAuth2PasswordRequestForm = Depends()
+):
+    user = await authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_access_token(
+        data={"sub": user["email"]}
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
 # Health check
 @app.get("/health")
 async def health_check():
