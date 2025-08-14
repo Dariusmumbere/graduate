@@ -6,3 +6,5 @@ passlib
 python-jose
 asyncpg
 python-dotenv
+pydantic[email]
+bcrypt
