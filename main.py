@@ -171,6 +171,23 @@ async def startup():
         )
 
 # Routes
+@app.post("/auth/login", response_model=Token)
+async def login(
+    email: str = Form(...),
+    password: str = Form(...),
+    db=Depends(get_db)
+):
+    user = await authenticate_user(db, email, password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+        )
+    return {
+        "access_token": create_access_token({"sub": user["email"]}),
+        "token_type": "bearer"
+    }
+    
 @app.post("/token", response_model=Token)
 async def login(
     db=Depends(get_db),
@@ -256,21 +273,6 @@ async def read_graduates(
     query += " ORDER BY created_at DESC"
     return await db.fetch(query, *params)
 
-@app.post("/auth/login", response_model=Token)
-async def login_for_access_token(
-    db=Depends(get_db),
-    login_data: LoginRequest  # Changed from OAuth2PasswordRequestForm
-):
-    user = await authenticate_user(db, login_data.email, login_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-        )
-    access_token = create_access_token(
-        data={"sub": user["email"]}
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
     
 # Health check
 @app.get("/health")
