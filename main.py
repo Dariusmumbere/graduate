@@ -1,8 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends, status, Request, Form
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import FastAPI, HTTPException, Depends, status, Form
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, date, timedelta
 from passlib.context import CryptContext
@@ -15,7 +14,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://graduate_smik_user:7BDuw74Mo5RK1MUFwaTG6BGlbzaz8Wg4@dpg-d2enqguuk2gs73bkgp6g-a/graduate_smik")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://graduate_smik_user:7BDuw74Mo5RK1MUFwaTG6BGlbzaz8Wg4@dpg-d2enqguuk2gs73bkgp6g-a/graduate_smik"
+)
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -58,13 +60,9 @@ class Graduate(GraduateBase):
     created_at: datetime
     updated_at: datetime
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
 # Auth setup
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
 
 app = FastAPI()
 
@@ -78,12 +76,9 @@ app.add_middleware(
 )
 
 # Database connection pool
-pool = None
+pool: Optional[asyncpg.Pool] = None
 
 async def get_db():
-    global pool
-    if pool is None:
-        pool = await asyncpg.create_pool(DATABASE_URL)
     return pool
 
 # Auth utilities
@@ -118,17 +113,19 @@ async def get_current_user(db=Depends(get_db), token: str = Depends(oauth2_schem
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     user = await db.fetchrow("SELECT id, email, name, is_active FROM users WHERE email = $1", email)
     if not user:
         raise credentials_exception
     return user
 
-# Startup event - create tables and default admin
+# Startup & shutdown
 @app.on_event("startup")
 async def startup():
-    db = await get_db()
-    
+    global pool
+    pool = await asyncpg.create_pool(DATABASE_URL)
+    db = pool
+
     # Create tables
     await db.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -141,7 +138,7 @@ async def startup():
             updated_at TIMESTAMP DEFAULT NOW()
         )
     """)
-    
+
     await db.execute("""
         CREATE TABLE IF NOT EXISTS graduates (
             id SERIAL PRIMARY KEY,
@@ -160,7 +157,7 @@ async def startup():
             created_by INTEGER REFERENCES users(id)
         )
     """)
-    
+
     # Create default admin if not exists
     admin_exists = await db.fetchrow("SELECT 1 FROM users WHERE email = $1", DEFAULT_ADMIN_EMAIL)
     if not admin_exists:
@@ -170,9 +167,13 @@ async def startup():
             DEFAULT_ADMIN_EMAIL, "Admin", hashed_password
         )
 
+@app.on_event("shutdown")
+async def shutdown():
+    await pool.close()
+
 # Routes
 @app.post("/auth/login", response_model=Token)
-async def login(
+async def login_auth(
     email: str = Form(...),
     password: str = Form(...),
     db=Depends(get_db)
@@ -187,9 +188,9 @@ async def login(
         "access_token": create_access_token({"sub": user["email"]}),
         "token_type": "bearer"
     }
-    
+
 @app.post("/token", response_model=Token)
-async def login(
+async def login_token(
     email: str = Form(...),
     password: str = Form(...),
     db=Depends(get_db)
@@ -204,13 +205,13 @@ async def login(
         "access_token": create_access_token({"sub": user["email"]}),
         "token_type": "bearer"
     }
-    
+
 @app.post("/auth/register", response_model=User)
 async def register(user: UserCreate, db=Depends(get_db)):
     existing_user = await db.fetchrow("SELECT id FROM users WHERE email = $1", user.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     hashed_password = get_password_hash(user.password)
     new_user = await db.fetchrow(
         "INSERT INTO users (email, name, password) VALUES ($1, $2, $3) RETURNING id, email, name, is_active",
@@ -256,25 +257,24 @@ async def read_graduates(
     query = "SELECT * FROM graduates WHERE 1=1"
     params = []
     param_count = 1
-    
+
     if highest_qualification:
         query += f" AND highest_qualification = ${param_count}"
         params.append(highest_qualification)
         param_count += 1
-    
+
     if job_field:
         query += f" AND job_field = ${param_count}"
         params.append(job_field)
         param_count += 1
-    
+
     if employment_status:
         query += f" AND employment_status = ${param_count}"
         params.append(employment_status)
-    
+
     query += " ORDER BY created_at DESC"
     return await db.fetch(query, *params)
 
-    
 # Health check
 @app.get("/health")
 async def health_check():
