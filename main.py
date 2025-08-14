@@ -58,6 +58,10 @@ class Graduate(GraduateBase):
     created_at: datetime
     updated_at: datetime
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 # Auth setup
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -255,20 +259,19 @@ async def read_graduates(
 @app.post("/auth/login", response_model=Token)
 async def login_for_access_token(
     db=Depends(get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
+    login_data: LoginRequest  # Changed from OAuth2PasswordRequestForm
 ):
-    user = await authenticate_user(db, form_data.username, form_data.password)
+    user = await authenticate_user(db, login_data.email, login_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(
         data={"sub": user["email"]}
     )
     return {"access_token": access_token, "token_type": "bearer"}
-
+    
 # Health check
 @app.get("/health")
 async def health_check():
