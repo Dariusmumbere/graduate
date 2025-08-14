@@ -1,0 +1,7 @@
+fastapi
+python-dotenv
+asyncpg
+passlib
+python-jose
+pydantic
+passlib[bcrypt]
