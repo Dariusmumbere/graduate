@@ -190,10 +190,11 @@ async def login(
     
 @app.post("/token", response_model=Token)
 async def login(
-    db=Depends(get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
+    email: str = Form(...),
+    password: str = Form(...),
+    db=Depends(get_db)
 ):
-    user = await authenticate_user(db, form_data.username, form_data.password)
+    user = await authenticate_user(db, email, password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -203,7 +204,7 @@ async def login(
         "access_token": create_access_token({"sub": user["email"]}),
         "token_type": "bearer"
     }
-
+    
 @app.post("/auth/register", response_model=User)
 async def register(user: UserCreate, db=Depends(get_db)):
     existing_user = await db.fetchrow("SELECT id FROM users WHERE email = $1", user.email)
