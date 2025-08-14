@@ -40,6 +40,10 @@ class User(UserBase):
     id: int
     is_active: bool
 
+class LoginData(BaseModel):
+    email: str
+    password: str
+
 class GraduateBase(BaseModel):
     name: str
     email: EmailStr
@@ -174,11 +178,10 @@ async def shutdown():
 # Routes
 @app.post("/auth/login", response_model=Token)
 async def login_auth(
-    email: str = Form(...),
-    password: str = Form(...),
+    login_data: LoginData,
     db=Depends(get_db)
 ):
-    user = await authenticate_user(db, email, password)
+    user = await authenticate_user(db, login_data.email, login_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -188,7 +191,7 @@ async def login_auth(
         "access_token": create_access_token({"sub": user["email"]}),
         "token_type": "bearer"
     }
-
+    
 @app.post("/token", response_model=Token)
 async def login_token(
     email: str = Form(...),
