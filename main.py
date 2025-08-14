@@ -51,7 +51,7 @@ GEMINI_API_KEY = "AIzaSyAfGhtKkofAFP9NZqOB0MR3Fr0fUZYfiT0"
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
 
 # Database configuration
-DATABASE_URL = "postgresql://reporting_wlcd_user:sYC2WmtyjDCjyxvCPjoRNYAH4OCpVp6L@dpg-d1p23rc9c44c738581ig-a/reporting_wlcd"
+DATABASE_URL = "postgresql://graduate_smik_user:7BDuw74Mo5RK1MUFwaTG6BGlbzaz8Wg4@dpg-d2enqguuk2gs73bkgp6g-a/graduate_smik"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
