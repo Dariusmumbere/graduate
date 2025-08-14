@@ -606,9 +606,19 @@ async def is_org_admin_or_super_admin(current_user: UserInDB = Depends(get_curre
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return current_user
     
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
+def reset_database():
+    with engine.connect() as conn:
+        # Drop everything
+        conn.execute(text("DROP SCHEMA public CASCADE;"))
+        # Recreate schema
+        conn.execute(text("CREATE SCHEMA public;"))
+        conn.commit()
 
+    # Recreate tables from models
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database has been reset and all tables recreated.")
+
+reset_database()
 
 # Initialize FastAPI app
 app = FastAPI(
